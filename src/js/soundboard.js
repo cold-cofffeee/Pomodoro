@@ -459,40 +459,53 @@ class Soundboard {
 
             try {
                 if (sound.howl.isYouTubeAudio) {
+                    // Stop all other YouTube tracks first to prevent multiple music playing
+                    this.stopAllYouTubePlayers();
+                    
+                    // Also stop any other YouTube sounds in our soundboard
+                    this.sounds.forEach((otherSound, otherId) => {
+                        if (otherId !== id && otherSound.howl.isYouTubeAudio && otherSound.isPlaying) {
+                            this.stopSound(otherId);
+                        }
+                    });
+                    
                     this.playYouTubeAudio(sound.videoId);
                 } else {
-                    // Ensure sound is properly loaded before playing
-                    if (sound.howl.state() === 'loading') {
-                        console.log(`Waiting for ${sound.name} to load...`);
-                        // Wait for sound to load
-                        sound.howl.once('load', () => {
-                            console.log(`${sound.name} loaded, playing now`);
-                            this.playSound(id);
-                        });
+                    // Check if this is a regular Howl instance with state() method
+                    if (typeof sound.howl.state === 'function') {
+                        // Ensure sound is properly loaded before playing
+                        if (sound.howl.state() === 'loading') {
+                            console.log(`Waiting for ${sound.name} to load...`);
+                            // Wait for sound to load
+                            sound.howl.once('load', () => {
+                                console.log(`${sound.name} loaded, playing now`);
+                                this.playSound(id);
+                            });
+                            
+                            // Add timeout to prevent infinite waiting
+                            setTimeout(() => {
+                                if (sound.howl.state() === 'loading') {
+                                    console.error(`Timeout waiting for ${sound.name} to load`);
+                                    sound.loadFailed = true;
+                                    this.updateSoundCard(id);
+                                    window.focusApp.showNotification(
+                                        'Loading Timeout',
+                                        `"${sound.name}" took too long to load`,
+                                        'error'
+                                    );
+                                }
+                            }, 10000); // 10 second timeout
+                            
+                            return;
+                        }
                         
-                        // Add timeout to prevent infinite waiting
-                        setTimeout(() => {
-                            if (sound.howl.state() === 'loading') {
-                                console.error(`Timeout waiting for ${sound.name} to load`);
-                                sound.loadFailed = true;
-                                this.updateSoundCard(id);
-                                window.focusApp.showNotification(
-                                    'Loading Timeout',
-                                    `"${sound.name}" took too long to load`,
-                                    'error'
-                                );
-                            }
-                        }, 10000); // 10 second timeout
-                        
-                        return;
-                    }
-                    
-                    // Check if sound is in a bad state
-                    if (sound.howl.state() === 'unloaded') {
-                        console.log(`Reloading ${sound.name}...`);
-                        sound.howl.load();
-                        setTimeout(() => this.playSound(id), 500);
-                        return;
+                        // Check if sound is in a bad state
+                        if (sound.howl.state() === 'unloaded') {
+                            console.log(`Reloading ${sound.name}...`);
+                            sound.howl.load();
+                            setTimeout(() => this.playSound(id), 500);
+                            return;
+                        }
                     }
                     
                     // For custom files, ensure proper volume before playing
@@ -660,8 +673,8 @@ class Soundboard {
                 const finalVolume = sound.volume * this.masterVolume * (this.isMuted ? 0 : 1);
                 
                 if (sound.howl.isYouTubeAudio) {
-                    // Skip YouTube here, handle below
-                    return;
+                    // Handle YouTube audio
+                    this.setYouTubeAudioVolume(sound.videoId, finalVolume);
                 } else {
                     // Apply volume to regular and custom sounds
                     sound.howl.volume(finalVolume);
@@ -678,20 +691,6 @@ class Soundboard {
                 console.error(`Error updating master volume for ${sound.name}:`, error);
             }
         });
-        
-        // Update all YouTube players
-        if (this.youtubeWindows) {
-            this.youtubeWindows.forEach((playerData, windowId) => {
-                if (playerData.iframe) {
-                    const soundId = `youtube_${playerData.videoId}`;
-                    const sound = this.sounds.get(soundId);
-                    if (sound) {
-                        const finalVolume = sound.volume * this.masterVolume * (this.isMuted ? 0 : 1);
-                        this.setYouTubeAudioVolume(playerData.videoId, finalVolume);
-                    }
-                }
-            });
-        }
         
         console.log(`Master volume set to: ${volume}`);
     }
@@ -710,25 +709,16 @@ class Soundboard {
             muteBtn?.classList.remove('text-red-500');
         }
         
+        // Update all sounds including YouTube
         this.sounds.forEach(sound => {
-            if (!sound.howl.isYouTubeAudio) {
-                sound.howl.volume(sound.volume * this.masterVolume * (this.isMuted ? 0 : 1));
+            const finalVolume = sound.volume * this.masterVolume * (this.isMuted ? 0 : 1);
+            
+            if (sound.howl.isYouTubeAudio) {
+                this.setYouTubeAudioVolume(sound.videoId, finalVolume);
+            } else {
+                sound.howl.volume(finalVolume);
             }
         });
-        
-        // Update YouTube players mute state
-        if (this.youtubeWindows) {
-            this.youtubeWindows.forEach((playerData, windowId) => {
-                if (playerData.iframe) {
-                    const soundId = `youtube_${playerData.videoId}`;
-                    const sound = this.sounds.get(soundId);
-                    if (sound) {
-                        const finalVolume = sound.volume * this.masterVolume * (this.isMuted ? 0 : 1);
-                        this.setYouTubeAudioVolume(playerData.videoId, finalVolume);
-                    }
-                }
-            });
-        }
 
         window.focusApp.showNotification(
             this.isMuted ? 'All Sounds Muted' : 'Sounds Unmuted',
@@ -920,7 +910,7 @@ class Soundboard {
                 icon.className = 'fas fa-exclamation-triangle mr-2';
                 if (text) text.textContent = 'Failed';
                 playBtn.disabled = true;
-            } else if (sound.howl.state() === 'loading') {
+            } else if (!sound.howl.isYouTubeAudio && typeof sound.howl.state === 'function' && sound.howl.state() === 'loading') {
                 playBtn.className = 'play-btn w-full bg-yellow-500 text-white text-sm py-2 cursor-wait';
                 icon.className = 'fas fa-spinner fa-spin mr-2';
                 if (text) text.textContent = 'Loading...';
@@ -1557,24 +1547,43 @@ class Soundboard {
                     JSON.stringify({
                         event: 'command',
                         func: 'setVolume',
-                        args: youtubeVolume
+                        args: [youtubeVolume]
                     }), 
                     '*'
                 );
                 
-                // Method 2: Try setting iframe audio volume directly (if possible)
-                if (iframe.contentDocument) {
-                    const videos = iframe.contentDocument.querySelectorAll('video');
-                    videos.forEach(video => {
-                        if (video) {
-                            video.volume = volume;
+                // Method 2: Enhanced iframe audio control
+                setTimeout(() => {
+                    try {
+                        if (iframe.contentDocument) {
+                            const videos = iframe.contentDocument.querySelectorAll('video');
+                            videos.forEach(video => {
+                                if (video) {
+                                    video.volume = volume;
+                                    video.muted = volume === 0;
+                                    console.log(`Applied volume ${volume} to video element`);
+                                }
+                            });
                         }
-                    });
+                    } catch (crossOriginError) {
+                        // Expected for cross-origin content
+                        console.log('Cross-origin restriction on direct video control');
+                    }
+                }, 100);
+                
+                // Method 3: Try to control iframe's audio context
+                if (iframe.contentWindow.postMessage) {
+                    iframe.contentWindow.postMessage({
+                        type: 'setVolume',
+                        volume: youtubeVolume,
+                        videoId: videoId
+                    }, '*');
                 }
                 
-                // Method 3: Store volume for manual application
+                // Method 4: Store volume for manual application
                 if (playerData) {
                     playerData.volume = volume;
+                    playerData.lastVolumeUpdate = Date.now();
                 }
                 
                 console.log(`Applied volume ${youtubeVolume}% to YouTube player ${videoId}`);
@@ -1582,14 +1591,24 @@ class Soundboard {
             } catch (error) {
                 console.log(`Limited volume control for YouTube player ${videoId}. Volume: ${Math.round(volume * 100)}%`);
                 
-                // Fallback: Show user notification for significant volume changes
+                // Enhanced fallback with user guidance
                 if (volume === 0) {
-                    window.focusApp.showNotification('YouTube Muted', 'YouTube track muted (manual control in browser may be needed)', 'info');
+                    window.focusApp.showNotification(
+                        'YouTube Muted', 
+                        'YouTube track muted. If audio continues, use browser controls to mute the tab.', 
+                        'info'
+                    );
                 } else if (playerData && Math.abs((playerData.lastNotifiedVolume || 1) - volume) > 0.3) {
-                    window.focusApp.showNotification('Volume Control', `YouTube volume set to ${Math.round(volume * 100)}% (limited browser control)`, 'info');
+                    window.focusApp.showNotification(
+                        'Volume Adjusted', 
+                        `YouTube volume set to ${Math.round(volume * 100)}%. Note: Browser may limit volume control.`, 
+                        'info'
+                    );
                     playerData.lastNotifiedVolume = volume;
                 }
             }
+        } else {
+            console.warn(`YouTube iframe not found for ${videoId}`);
         }
     }
 
@@ -1614,10 +1633,10 @@ class Soundboard {
             document.body.appendChild(container);
         }
         
-        // Create iframe with enhanced parameters for API control
+        // Create iframe with enhanced parameters for API control and proper volume support
         const iframe = document.createElement('iframe');
         iframe.id = iframeId;
-        iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&loop=1&playlist=${videoId}&controls=0&showinfo=0&rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&widgetid=1`;
+        iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&loop=1&playlist=${videoId}&controls=0&showinfo=0&rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&widgetid=1&disablekb=1&fs=0&iv_load_policy=3`;
         iframe.style.cssText = 'width: 1px; height: 1px; border: none;';
         iframe.allow = 'autoplay; encrypted-media';
         iframe.sandbox = 'allow-scripts allow-same-origin allow-presentation';
@@ -1631,10 +1650,18 @@ class Soundboard {
         iframe.onload = () => {
             console.log(`YouTube iframe loaded for ${videoId}`);
             
-            // Try to enable volume control after load
+            // Try to enable volume control after load with multiple attempts
             setTimeout(() => {
                 this.initializeYouTubeVolumeControl(videoId);
-            }, 2000);
+            }, 1000);
+            
+            setTimeout(() => {
+                this.initializeYouTubeVolumeControl(videoId);
+            }, 3000);
+            
+            setTimeout(() => {
+                this.initializeYouTubeVolumeControl(videoId);
+            }, 5000);
         };
         
         container.appendChild(iframe);
