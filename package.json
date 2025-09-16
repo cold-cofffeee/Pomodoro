@@ -1,0 +1,71 @@
+{
+  "name": "focus-soundboard-app",
+  "version": "1.0.0",
+  "description": "A modern Pomodoro timer with ambient soundboard for ADHD-friendly focus sessions",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "concurrently \"npm run watch-css\" \"electron . --dev\"",
+    "watch-css": "tailwindcss -i ./src/css/input.css -o ./src/css/output.css --watch",
+    "build-css": "tailwindcss -i ./src/css/input.css -o ./src/css/output.css --minify",
+    "build": "npm run build-css && electron-builder",
+    "build-win": "npm run build-css && electron-builder --win",
+    "build-mac": "npm run build-css && electron-builder --mac",
+    "build-linux": "npm run build-css && electron-builder --linux",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "keywords": [
+    "pomodoro",
+    "timer",
+    "soundboard",
+    "focus",
+    "productivity",
+    "adhd",
+    "ambient",
+    "electron"
+  ],
+  "author": "Focus Soundboard App",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1",
+    "tailwindcss": "^3.4.0"
+  },
+  "dependencies": {
+    "electron-store": "^8.1.0",
+    "howler": "^2.2.4",
+    "uuid": "^9.0.1",
+    "ytmusic-api": "^5.3.0"
+  },
+  "build": {
+    "appId": "com.focussoundboard.app",
+    "productName": "Focus Soundboard",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "src/assets/icons/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "src/assets/icons/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "src/assets/icons/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

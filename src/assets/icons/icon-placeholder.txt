@@ -1,0 +1,15 @@
+# This is a placeholder file for the app icon
+# In a real app, you would have proper PNG/ICO icon files here
+# For now, we'll use this as a reference
+
+# To create proper icons, you would need:
+# - icon.png (256x256 or higher resolution PNG)
+# - icon.ico (Windows icon format)
+# - icon.icns (macOS icon format)
+
+# You can convert SVG to these formats using tools like:
+# - ImageMagick: convert icon.svg icon.png
+# - Online converters
+# - Design software like Figma, Sketch, or Adobe Illustrator
+
+echo "Icon placeholder - replace with actual PNG/ICO files"

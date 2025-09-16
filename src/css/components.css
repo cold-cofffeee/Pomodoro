@@ -1,0 +1,442 @@
+/* Additional Component Styles */
+
+/* Drag and Drop Styles */
+.drag-drop-zone {
+    padding: 2rem;
+    text-align: center;
+    border-radius: 0.75rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: 2px dashed #d1d5db;
+}
+
+.drag-drop-zone.drag-over {
+    border-color: #60a5fa;
+    background-color: #eff6ff;
+    border-style: solid;
+    transform: scale(1.05);
+}
+
+.drag-drop-zone:hover {
+    border-color: #93c5fd;
+    background-color: #f9fafb;
+}
+
+.dark .drag-drop-zone.drag-over {
+    background-color: rgba(59, 130, 246, 0.2);
+}
+
+.dark .drag-drop-zone:hover {
+    background-color: rgba(31, 41, 55, 0.5);
+}
+
+/* Mode Button Styles */
+.mode-btn {
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    background-color: white;
+    border: 1px solid #e5e7eb;
+    color: #374151;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.mode-btn:hover {
+    background-color: #f9fafb;
+}
+
+.dark .mode-btn {
+    background-color: #1f2937;
+    border-color: #374151;
+    color: #d1d5db;
+}
+
+.dark .mode-btn:hover {
+    background-color: #374151;
+}
+
+.mode-btn.active {
+    background-color: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+    box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.25);
+}
+
+/* Category Tab Styles */
+.category-tab {
+    flex: 1;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #6b7280;
+    border-radius: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.category-tab:hover {
+    color: #111827;
+    background-color: #e5e7eb;
+}
+
+.dark .category-tab {
+    color: #9ca3af;
+}
+
+.dark .category-tab:hover {
+    color: white;
+    background-color: #374151;
+}
+
+.category-tab.active {
+    background-color: white;
+    color: #111827;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.dark .category-tab.active {
+    background-color: #374151;
+    color: white;
+}
+
+/* Sound Card Styles */
+.sound-card {
+    transition: all 0.3s ease;
+}
+
+.sound-card:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Volume Slider Styles */
+.volume-slider {
+    background: linear-gradient(to right, #3b82f6 0%, #3b82f6 50%, #e5e7eb 50%, #e5e7eb 100%);
+}
+
+.volume-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #3b82f6;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.volume-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #3b82f6;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Settings Modal Styles */
+.settings-tab {
+    color: #374151;
+    font-weight: 500;
+}
+
+.dark .settings-tab {
+    color: #d1d5db;
+}
+
+.settings-tab.active {
+    background-color: #dbeafe;
+    color: #1d4ed8;
+}
+
+.dark .settings-tab.active {
+    background-color: rgba(59, 130, 246, 0.3);
+    color: #93c5fd;
+}
+
+.theme-option input:checked + div {
+    border-color: #3b82f6;
+}
+
+/* Progress Circle Animation */
+@keyframes progressPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.progress-circle-active {
+    animation: progressPulse 2s ease-in-out infinite;
+}
+
+/* Notification Toast Animations */
+.toast-enter {
+    transform: translateX(100%);
+    opacity: 0;
+}
+
+.toast-enter-active {
+    transform: translateX(0);
+    opacity: 1;
+    transition: all 0.3s ease-out;
+}
+
+.toast-exit {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.toast-exit-active {
+    transform: translateX(100%);
+    opacity: 0;
+    transition: all 0.3s ease-in;
+}
+
+/* Custom Scrollbar for Settings */
+.settings-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+
+.settings-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.settings-scroll::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.5);
+    border-radius: 3px;
+}
+
+.settings-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(156, 163, 175, 0.7);
+}
+
+/* Timer Status Indicators */
+.status-indicator {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+}
+
+.status-indicator.ready {
+    background-color: #9ca3af;
+}
+
+.status-indicator.running {
+    background-color: #10b981;
+    animation: pulse 2s infinite;
+}
+
+.status-indicator.paused {
+    background-color: #f59e0b;
+}
+
+.status-indicator.complete {
+    background-color: #3b82f6;
+    animation: bounceSubtle 1s infinite;
+}
+
+/* Preset Button Styles */
+.preset-btn {
+    padding: 0.5rem 0.75rem;
+    background-color: #f3f4f6;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    transition: all 0.15s ease;
+    border: 1px solid #e5e7eb;
+    cursor: pointer;
+}
+
+.preset-btn:hover {
+    background-color: #e5e7eb;
+    border-color: #d1d5db;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.dark .preset-btn {
+    background-color: #374151;
+    color: #d1d5db;
+    border-color: #4b5563;
+}
+
+.dark .preset-btn:hover {
+    background-color: #4b5563;
+    border-color: #6b7280;
+}
+
+.preset-btn.active {
+    background-color: #dbeafe;
+    color: #1d4ed8;
+    border-color: #3b82f6;
+}
+
+.dark .preset-btn.active {
+    background-color: rgba(59, 130, 246, 0.3);
+    color: #93c5fd;
+    border-color: #3b82f6;
+}
+
+/* Focus Session Stats */
+.stats-card {
+    padding: 1.5rem;
+    border-radius: 1rem;
+    background: linear-gradient(to bottom right, var(--from-color), var(--to-color));
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.stats-card:hover {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.stats-card.focus {
+    --from-color: #3b82f6;
+    --to-color: #2563eb;
+    color: white;
+}
+
+.stats-card.break {
+    --from-color: #10b981;
+    --to-color: #059669;
+    color: white;
+}
+
+.stats-card.total {
+    --from-color: #8b5cf6;
+    --to-color: #7c3aed;
+    color: white;
+}
+
+/* Loading States */
+.loading-pulse {
+    animation: loadingPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes loadingPulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Error States */
+.error-state {
+    color: #dc2626;
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+
+.dark .error-state {
+    color: #f87171;
+    background-color: rgba(220, 38, 38, 0.2);
+    border-color: #991b1b;
+}
+
+/* Success States */
+.success-state {
+    color: #059669;
+    background-color: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+
+.dark .success-state {
+    color: #34d399;
+    background-color: rgba(5, 150, 105, 0.2);
+    border-color: #064e3b;
+}
+
+/* Warning States */
+.warning-state {
+    color: #d97706;
+    background-color: #fffbeb;
+    border: 1px solid #fed7aa;
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+
+.dark .warning-state {
+    color: #fbbf24;
+    background-color: rgba(217, 119, 6, 0.2);
+    border-color: #92400e;
+}
+
+/* Responsive Design Adjustments */
+@media (max-width: 768px) {
+    .mode-btn {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.75rem;
+    }
+    
+    .category-tab {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .sound-card {
+        padding: 0.75rem;
+    }
+    
+    .stats-card {
+        padding: 1rem;
+    }
+}
+
+/* Dark Mode Specific Adjustments */
+.dark .volume-slider {
+    background: linear-gradient(to right, #3b82f6 0%, #3b82f6 50%, #374151 50%, #374151 100%);
+}
+
+.dark .glass {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+    .mode-btn {
+        border: 2px solid;
+    }
+    
+    .category-tab {
+        border: 1px solid #9ca3af;
+    }
+    
+    .dark .category-tab {
+        border-color: #4b5563;
+    }
+    
+    .sound-card {
+        border: 2px solid #d1d5db;
+    }
+    
+    .dark .sound-card {
+        border-color: #4b5563;
+    }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    .sound-card,
+    .mode-btn,
+    .category-tab,
+    .preset-btn {
+        transition: none;
+    }
+    
+    .status-indicator.running,
+    .status-indicator.complete {
+        animation: none;
+    }
+    
+    .progress-circle-active {
+        animation: none;
+    }
+}
