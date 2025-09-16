@@ -459,28 +459,21 @@ class Soundboard {
 
             try {
                 if (sound.howl.isYouTubeAudio) {
-                    // Stop all other YouTube tracks first to prevent multiple music playing
+                    // Stop ALL other sounds (both YouTube and local) to ensure only one track plays
+                    this.sounds.forEach((otherSound, otherId) => {
+                        if (otherId !== id && otherSound.isPlaying) {
+                            this.stopSound(otherId);
+                        }
+                    });
+                    
+                    // Stop all YouTube players
                     this.stopAllYouTubePlayers();
-                    
-                    // Also stop any other YouTube sounds in our soundboard
-                    this.sounds.forEach((otherSound, otherId) => {
-                        if (otherId !== id && otherSound.howl.isYouTubeAudio && otherSound.isPlaying) {
-                            this.stopSound(otherId);
-                        }
-                    });
-                    
-                    // Stop all local/regular sounds to ensure only one track plays at a time
-                    this.sounds.forEach((otherSound, otherId) => {
-                        if (otherId !== id && !otherSound.howl.isYouTubeAudio && otherSound.isPlaying) {
-                            this.stopSound(otherId);
-                        }
-                    });
                     
                     this.playYouTubeAudio(sound.videoId);
                 } else {
-                    // For local/regular sounds, stop all YouTube tracks to ensure only one track plays
+                    // For local/regular sounds, stop ALL other sounds (both YouTube and local)
                     this.sounds.forEach((otherSound, otherId) => {
-                        if (otherSound.howl.isYouTubeAudio && otherSound.isPlaying) {
+                        if (otherId !== id && otherSound.isPlaying) {
                             this.stopSound(otherId);
                         }
                     });
@@ -1407,6 +1400,15 @@ class Soundboard {
                 author: youtubeData.author,
                 thumbnails: youtubeData.thumbnails
             });
+            
+            // AGGRESSIVELY protect theme during YouTube operations
+            if (window.focusApp && window.focusApp.forceApplyTheme) {
+                // Force theme multiple times to ensure it sticks
+                setTimeout(() => window.focusApp.forceApplyTheme(), 100);
+                setTimeout(() => window.focusApp.forceApplyTheme(), 300);
+                setTimeout(() => window.focusApp.forceApplyTheme(), 500);
+                setTimeout(() => window.focusApp.forceApplyTheme(), 1000);
+            }
             
             return sound;
         } catch (error) {

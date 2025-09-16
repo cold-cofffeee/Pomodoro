@@ -76,16 +76,27 @@ class FocusSoundboardApp {
         // Store the current theme state to detect unwanted changes
         this.currentThemeState = this.isDarkMode;
         
-        // Monitor for unwanted theme changes (like from YouTube iframes)
+        // Aggressive protection - check every 500ms and force theme if needed
+        setInterval(() => {
+            const currentDOMTheme = document.documentElement.classList.contains('dark');
+            
+            // If DOM theme doesn't match our app state, force restore it
+            if (currentDOMTheme !== this.isDarkMode) {
+                console.log('FORCING theme restoration - external interference detected');
+                this.forceApplyTheme();
+            }
+        }, 500);
+        
+        // Also listen for any class changes and immediately fix them
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
                     const currentDOMTheme = document.documentElement.classList.contains('dark');
                     
-                    // If DOM theme doesn't match our app state, restore it
+                    // If DOM theme doesn't match our app state, immediately restore it
                     if (currentDOMTheme !== this.isDarkMode) {
-                        console.log('Unwanted theme change detected, restoring...');
-                        this.applyTheme();
+                        console.log('IMMEDIATE theme fix - interference blocked');
+                        this.forceApplyTheme();
                     }
                 }
             });
@@ -98,12 +109,32 @@ class FocusSoundboardApp {
         });
     }
 
-    applyTheme() {
+    forceApplyTheme() {
+        // Aggressively apply theme
+        document.documentElement.className = ''; // Clear all classes first
+        
         if (this.isDarkMode) {
             document.documentElement.classList.add('dark');
+            document.documentElement.classList.remove('light');
         } else {
             document.documentElement.classList.remove('dark');
+            document.documentElement.classList.add('light');
         }
+        
+        // Force it again after a tiny delay to ensure it sticks
+        setTimeout(() => {
+            if (this.isDarkMode) {
+                document.documentElement.classList.add('dark');
+                document.documentElement.classList.remove('light');
+            } else {
+                document.documentElement.classList.remove('dark');
+                document.documentElement.classList.add('light');
+            }
+        }, 10);
+    }
+
+    applyTheme() {
+        this.forceApplyTheme();
     }
 
     async toggleTheme() {
