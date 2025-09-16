@@ -1329,6 +1329,9 @@ class Soundboard {
         try {
             console.log(`Adding YouTube sound: ${youtubeData.name}`);
             
+            // Preserve current theme state to prevent any interference
+            const currentThemeState = document.documentElement.classList.contains('dark');
+            
             // Create a simple YouTube audio URL without trying to get stream data
             // This uses a more basic approach that should work for most videos
             const youtubeUrl = `https://www.youtube.com/watch?v=${youtubeData.videoId}`;
@@ -1381,7 +1384,7 @@ class Soundboard {
             this.sounds.set(sound.id, sound);
             
             // Save to storage
-            await this.saveCustomSounds();
+            await this.saveSounds();
             
             // Update UI
             this.renderSounds();
@@ -1393,6 +1396,16 @@ class Soundboard {
                 author: youtubeData.author,
                 thumbnails: youtubeData.thumbnails
             });
+            
+            // Ensure theme state is preserved
+            if (currentThemeState !== document.documentElement.classList.contains('dark')) {
+                console.log('Theme state changed during YouTube track addition, restoring...');
+                if (currentThemeState) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            }
             
             return sound;
         } catch (error) {
@@ -1460,7 +1473,7 @@ class Soundboard {
             this.sounds.splice(index, 1);
             
             // Save and update UI
-            this.saveCustomSounds();
+            this.saveSounds();
             this.renderSounds();
             
             console.log(`Removed YouTube sound: ${sound.name}`);
