@@ -469,8 +469,22 @@ class Soundboard {
                         }
                     });
                     
+                    // Stop all local/regular sounds to ensure only one track plays at a time
+                    this.sounds.forEach((otherSound, otherId) => {
+                        if (otherId !== id && !otherSound.howl.isYouTubeAudio && otherSound.isPlaying) {
+                            this.stopSound(otherId);
+                        }
+                    });
+                    
                     this.playYouTubeAudio(sound.videoId);
                 } else {
+                    // For local/regular sounds, stop all YouTube tracks to ensure only one track plays
+                    this.sounds.forEach((otherSound, otherId) => {
+                        if (otherSound.howl.isYouTubeAudio && otherSound.isPlaying) {
+                            this.stopSound(otherId);
+                        }
+                    });
+                    
                     // Check if this is a regular Howl instance with state() method
                     if (typeof sound.howl.state === 'function') {
                         // Ensure sound is properly loaded before playing
@@ -1329,9 +1343,6 @@ class Soundboard {
         try {
             console.log(`Adding YouTube sound: ${youtubeData.name}`);
             
-            // Preserve current theme state to prevent any interference
-            const currentThemeState = document.documentElement.classList.contains('dark');
-            
             // Create a simple YouTube audio URL without trying to get stream data
             // This uses a more basic approach that should work for most videos
             const youtubeUrl = `https://www.youtube.com/watch?v=${youtubeData.videoId}`;
@@ -1396,16 +1407,6 @@ class Soundboard {
                 author: youtubeData.author,
                 thumbnails: youtubeData.thumbnails
             });
-            
-            // Ensure theme state is preserved
-            if (currentThemeState !== document.documentElement.classList.contains('dark')) {
-                console.log('Theme state changed during YouTube track addition, restoring...');
-                if (currentThemeState) {
-                    document.documentElement.classList.add('dark');
-                } else {
-                    document.documentElement.classList.remove('dark');
-                }
-            }
             
             return sound;
         } catch (error) {

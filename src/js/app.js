@@ -52,16 +52,50 @@ class FocusSoundboardApp {
         try {
             if (this.isElectron) {
                 const savedTheme = await window.electronAPI.store.get('theme');
-                this.isDarkMode = savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                // Default to system theme if no saved preference
+                this.isDarkMode = savedTheme === 'dark' || (savedTheme === 'light' ? false : window.matchMedia('(prefers-color-scheme: dark)').matches);
             } else {
                 const savedTheme = localStorage.getItem('theme');
-                this.isDarkMode = savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                // Default to system theme if no saved preference
+                this.isDarkMode = savedTheme === 'dark' || (savedTheme === 'light' ? false : window.matchMedia('(prefers-color-scheme: dark)').matches);
             }
             
             this.applyTheme();
+            
+            // Set up protection against unwanted theme changes
+            this.setupThemeProtection();
         } catch (error) {
             console.error('Error loading theme:', error);
+            // Fallback to system theme
+            this.isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            this.applyTheme();
         }
+    }
+
+    setupThemeProtection() {
+        // Store the current theme state to detect unwanted changes
+        this.currentThemeState = this.isDarkMode;
+        
+        // Monitor for unwanted theme changes (like from YouTube iframes)
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    const currentDOMTheme = document.documentElement.classList.contains('dark');
+                    
+                    // If DOM theme doesn't match our app state, restore it
+                    if (currentDOMTheme !== this.isDarkMode) {
+                        console.log('Unwanted theme change detected, restoring...');
+                        this.applyTheme();
+                    }
+                }
+            });
+        });
+        
+        // Observe changes to document element class
+        observer.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['class']
+        });
     }
 
     applyTheme() {
@@ -74,6 +108,7 @@ class FocusSoundboardApp {
 
     async toggleTheme() {
         this.isDarkMode = !this.isDarkMode;
+        this.currentThemeState = this.isDarkMode; // Update tracked state
         this.applyTheme();
         
         try {
