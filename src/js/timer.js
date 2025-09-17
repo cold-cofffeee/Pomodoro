@@ -1,6 +1,7 @@
 // Pomodoro Timer Class
 class PomodoroTimer {
     constructor() {
+        this.db = null;
         this.timeRemaining = 0;
         this.totalTime = 0;
         this.isRunning = false;
@@ -53,6 +54,13 @@ class PomodoroTimer {
 
     async init() {
         console.log('Initializing Pomodoro Timer...');
+        
+        // Initialize local database
+        if (window.LocalDatabase) {
+            this.db = new window.LocalDatabase();
+            await this.db.init();
+        }
+        
         await this.loadSettings();
         this.setupEventListeners();
         this.updateDisplay();
@@ -61,7 +69,18 @@ class PomodoroTimer {
 
     async loadSettings() {
         try {
-            const settings = await window.focusApp.loadData('timer-settings', {});
+            let settings = {};
+            let sessionHistory = [];
+            
+            if (this.db) {
+                // Use local database
+                settings = await this.db.get('timer.settings') || {};
+                sessionHistory = await this.db.get('timer.sessionHistory') || [];
+            } else {
+                // Fallback to old Electron store method
+                settings = await window.focusApp.loadData('timer-settings', {});
+                sessionHistory = await window.focusApp.loadData('session-history', []);
+            }
             
             this.isADHDMode = settings.adhdMode || false;
             this.autoStart = settings.autoStart !== undefined ? settings.autoStart : true;
@@ -76,7 +95,7 @@ class PomodoroTimer {
             }
             
             // Load session history
-            this.sessionHistory = await window.focusApp.loadData('session-history', []);
+            this.sessionHistory = sessionHistory;
             this.completedSessions = this.getTodaySessions();
             
             // Apply ADHD mode
@@ -102,8 +121,15 @@ class PomodoroTimer {
                 customDurations: customDurations
             };
             
-            await window.focusApp.saveData('timer-settings', settings);
-            await window.focusApp.saveData('session-history', this.sessionHistory);
+            if (this.db) {
+                // Use local database
+                await this.db.set('timer.settings', settings);
+                await this.db.set('timer.sessionHistory', this.sessionHistory);
+            } else {
+                // Fallback to old Electron store method
+                await window.focusApp.saveData('timer-settings', settings);
+                await window.focusApp.saveData('session-history', this.sessionHistory);
+            }
         } catch (error) {
             console.error('Error saving timer settings:', error);
         }

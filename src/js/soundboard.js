@@ -845,14 +845,47 @@ class Soundboard {
                 </button>
                 
                 <!-- Volume Control -->
-                <div class="space-y-1">
+                <div class="space-y-2">
                     <div class="flex items-center justify-between">
-                        <span class="text-xs text-gray-600 dark:text-gray-400">Vol</span>
+                        <span class="text-xs text-gray-600 dark:text-gray-400">Volume</span>
                         <span class="volume-display text-xs font-mono text-gray-500">${Math.round(sound.volume * 100)}%</span>
                     </div>
-                    <input type="range" min="0" max="1" step="0.01" value="${sound.volume}" 
-                           class="volume-slider w-full h-1 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer" 
-                           data-id="${sound.id}">
+                    <div class="relative">
+                        <input type="range" min="0" max="1" step="0.01" value="${sound.volume}" 
+                               class="volume-slider w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer slider" 
+                               data-id="${sound.id}"
+                               style="background: linear-gradient(to right, #3b82f6 0%, #3b82f6 ${sound.volume * 100}%, #e5e7eb ${sound.volume * 100}%, #e5e7eb 100%);">
+                        <style>
+                            .slider::-webkit-slider-thumb {
+                                appearance: none;
+                                width: 16px;
+                                height: 16px;
+                                border-radius: 50%;
+                                background: #3b82f6;
+                                cursor: pointer;
+                                border: 2px solid #ffffff;
+                                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                            }
+                            .slider::-moz-range-thumb {
+                                width: 16px;
+                                height: 16px;
+                                border-radius: 50%;
+                                background: #3b82f6;
+                                cursor: pointer;
+                                border: 2px solid #ffffff;
+                                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                            }
+                            .slider::-webkit-slider-track {
+                                height: 8px;
+                                border-radius: 4px;
+                            }
+                            .slider::-moz-range-track {
+                                height: 8px;
+                                border-radius: 4px;
+                                background: transparent;
+                            }
+                        </style>
+                    </div>
                 </div>
                 
                 <!-- Loop Toggle -->
@@ -881,7 +914,12 @@ class Soundboard {
         // Volume slider
         const volumeSlider = card.querySelector('.volume-slider');
         volumeSlider?.addEventListener('input', (e) => {
-            this.setSoundVolume(sound.id, parseFloat(e.target.value));
+            const volume = parseFloat(e.target.value);
+            this.setSoundVolume(sound.id, volume);
+            
+            // Update visual progress
+            const percentage = volume * 100;
+            e.target.style.background = `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${percentage}%, #e5e7eb ${percentage}%, #e5e7eb 100%)`;
         });
 
         // Loop toggle
@@ -944,6 +982,10 @@ class Soundboard {
         if (volumeSlider && !sound.loadFailed) {
             volumeSlider.value = sound.volume;
             volumeSlider.disabled = false;
+            
+            // Update visual progress
+            const percentage = sound.volume * 100;
+            volumeSlider.style.background = `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${percentage}%, #e5e7eb ${percentage}%, #e5e7eb 100%)`;
         } else if (volumeSlider && sound.loadFailed) {
             volumeSlider.disabled = true;
             volumeSlider.style.opacity = '0.5';

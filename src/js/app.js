@@ -50,20 +50,30 @@ class FocusSoundboardApp {
 
     async loadTheme() {
         try {
-            if (this.isElectron) {
-                const savedTheme = await window.electronAPI.store.get('theme');
-                // Default to system theme if no saved preference
-                this.isDarkMode = savedTheme === 'dark' || (savedTheme === 'light' ? false : window.matchMedia('(prefers-color-scheme: dark)').matches);
+            // Load theme from local database
+            const savedTheme = await window.pomodoroDb.getSetting('theme');
+            const lastThemeState = await window.pomodoroDb.getSetting('lastThemeState');
+            
+            // Determine theme: saved preference > last state > system default
+            if (savedTheme === 'dark') {
+                this.isDarkMode = true;
+            } else if (savedTheme === 'light') {
+                this.isDarkMode = false;
+            } else if (lastThemeState !== null) {
+                this.isDarkMode = lastThemeState;
             } else {
-                const savedTheme = localStorage.getItem('theme');
-                // Default to system theme if no saved preference
-                this.isDarkMode = savedTheme === 'dark' || (savedTheme === 'light' ? false : window.matchMedia('(prefers-color-scheme: dark)').matches);
+                // Default to system theme
+                this.isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
             }
             
+            console.log(`Theme loaded: ${this.isDarkMode ? 'dark' : 'light'} (source: ${savedTheme || 'system'})`);
             this.applyTheme();
             
             // Set up protection against unwanted theme changes
             this.setupThemeProtection();
+            
+            // Save the loaded state
+            await this.saveThemeState();
         } catch (error) {
             console.error('Error loading theme:', error);
             // Fallback to system theme
@@ -72,65 +82,134 @@ class FocusSoundboardApp {
         }
     }
 
+    async saveThemeState() {
+        try {
+            await window.pomodoroDb.updateSetting('lastThemeState', this.isDarkMode);
+        } catch (error) {
+            console.error('Error saving theme state:', error);
+        }
+    }
+
     setupThemeProtection() {
         // Store the current theme state to detect unwanted changes
         this.currentThemeState = this.isDarkMode;
         
-        // Aggressive protection - check every 500ms and force theme if needed
-        setInterval(() => {
+        // ULTRA AGGRESSIVE protection - check every 200ms
+        this.themeProtectionInterval = setInterval(async () => {
             const currentDOMTheme = document.documentElement.classList.contains('dark');
             
-            // If DOM theme doesn't match our app state, force restore it
+            // If DOM theme doesn't match our app state, force restore it immediately
             if (currentDOMTheme !== this.isDarkMode) {
-                console.log('FORCING theme restoration - external interference detected');
+                console.log('CRITICAL: External theme interference detected - FORCING RESTORATION');
                 this.forceApplyTheme();
+                
+                // Also save the correct state to database to prevent persistence of wrong theme
+                await this.saveThemeState();
             }
-        }, 500);
+        }, 200); // Check every 200ms for maximum protection
         
-        // Also listen for any class changes and immediately fix them
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
+        // IMMEDIATE protection via MutationObserver
+        const observer = new MutationObserver(async (mutations) => {
+            mutations.forEach(async (mutation) => {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
                     const currentDOMTheme = document.documentElement.classList.contains('dark');
                     
                     // If DOM theme doesn't match our app state, immediately restore it
                     if (currentDOMTheme !== this.isDarkMode) {
-                        console.log('IMMEDIATE theme fix - interference blocked');
+                        console.log('INSTANT theme fix - interference blocked immediately');
                         this.forceApplyTheme();
+                        await this.saveThemeState();
                     }
                 }
             });
         });
         
-        // Observe changes to document element class
+        // Observe changes to document element class with maximum sensitivity
         observer.observe(document.documentElement, {
             attributes: true,
-            attributeFilter: ['class']
+            attributeFilter: ['class'],
+            childList: false,
+            subtree: false
+        });
+
+        // Additional protection: monitor for iframe insertions that might cause issues
+        const bodyObserver = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList') {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'IFRAME') {
+                            console.log('IFRAME detected, scheduling theme protection...');
+                            // Schedule multiple theme checks after iframe load
+                            setTimeout(() => this.forceApplyTheme(), 100);
+                            setTimeout(() => this.forceApplyTheme(), 300);
+                            setTimeout(() => this.forceApplyTheme(), 600);
+                            setTimeout(() => this.forceApplyTheme(), 1000);
+                        }
+                    });
+                }
+            });
+        });
+        
+        bodyObserver.observe(document.body, {
+            childList: true,
+            subtree: true
         });
     }
 
     forceApplyTheme() {
-        // Aggressively apply theme
-        document.documentElement.className = ''; // Clear all classes first
+        // NUCLEAR OPTION: Completely reset and reapply theme
+        console.log(`FORCING theme application: ${this.isDarkMode ? 'DARK' : 'LIGHT'} mode`);
         
+        // Step 1: Clear ALL classes
+        document.documentElement.className = '';
+        
+        // Step 2: Force reflow
+        document.documentElement.offsetHeight;
+        
+        // Step 3: Apply correct theme
         if (this.isDarkMode) {
             document.documentElement.classList.add('dark');
-            document.documentElement.classList.remove('light');
+            document.documentElement.setAttribute('data-theme', 'dark');
         } else {
-            document.documentElement.classList.remove('dark');
             document.documentElement.classList.add('light');
+            document.documentElement.setAttribute('data-theme', 'light');
         }
         
-        // Force it again after a tiny delay to ensure it sticks
-        setTimeout(() => {
-            if (this.isDarkMode) {
-                document.documentElement.classList.add('dark');
-                document.documentElement.classList.remove('light');
-            } else {
-                document.documentElement.classList.remove('dark');
-                document.documentElement.classList.add('light');
+        // Step 4: Force another reflow
+        document.documentElement.offsetHeight;
+        
+        // Step 5: Double-check and re-apply if needed (after microtask)
+        Promise.resolve().then(() => {
+            const currentDOMTheme = document.documentElement.classList.contains('dark');
+            if (currentDOMTheme !== this.isDarkMode) {
+                console.log('EMERGENCY: Theme still incorrect after force apply, trying again...');
+                document.documentElement.className = '';
+                if (this.isDarkMode) {
+                    document.documentElement.classList.add('dark');
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                } else {
+                    document.documentElement.classList.add('light');
+                    document.documentElement.setAttribute('data-theme', 'light');
+                }
             }
-        }, 10);
+        });
+        
+        // Step 6: Final check after 50ms
+        setTimeout(() => {
+            const currentDOMTheme = document.documentElement.classList.contains('dark');
+            if (currentDOMTheme !== this.isDarkMode) {
+                console.error('CRITICAL: Theme protection failed - manual intervention required');
+                // One last attempt
+                document.documentElement.className = this.isDarkMode ? 'dark' : 'light';
+            }
+        }, 50);
+    }
+
+    // Cleanup method to remove intervals when app closes
+    cleanup() {
+        if (this.themeProtectionInterval) {
+            clearInterval(this.themeProtectionInterval);
+        }
     }
 
     applyTheme() {
@@ -142,12 +221,12 @@ class FocusSoundboardApp {
         this.currentThemeState = this.isDarkMode; // Update tracked state
         this.applyTheme();
         
+        console.log(`Manual theme change to: ${this.isDarkMode ? 'dark' : 'light'}`);
+        
         try {
-            if (this.isElectron) {
-                await window.electronAPI.store.set('theme', this.isDarkMode ? 'dark' : 'light');
-            } else {
-                localStorage.setItem('theme', this.isDarkMode ? 'dark' : 'light');
-            }
+            // Save theme preference to database
+            await window.pomodoroDb.updateSetting('theme', this.isDarkMode ? 'dark' : 'light');
+            await this.saveThemeState();
         } catch (error) {
             console.error('Error saving theme:', error);
         }

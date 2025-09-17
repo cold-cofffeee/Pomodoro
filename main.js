@@ -501,6 +501,39 @@ class FocusSoundboardApp {
       }
     });
     
+    // File system handlers for local database
+    ipcMain.handle('read-file', async (event, filePath) => {
+      try {
+        const fs = require('fs').promises;
+        const data = await fs.readFile(filePath, 'utf8');
+        return data;
+      } catch (error) {
+        if (error.code === 'ENOENT') {
+          return null; // File doesn't exist
+        }
+        console.error('Failed to read file:', error);
+        throw error;
+      }
+    });
+    
+    ipcMain.handle('write-file', async (event, filePath, data) => {
+      try {
+        const fs = require('fs').promises;
+        const path = require('path');
+        
+        // Ensure directory exists
+        const dir = path.dirname(filePath);
+        await fs.mkdir(dir, { recursive: true });
+        
+        // Write file
+        await fs.writeFile(filePath, data, 'utf8');
+        return true;
+      } catch (error) {
+        console.error('Failed to write file:', error);
+        throw error;
+      }
+    });
+    
     console.log('All IPC handlers registered successfully');
     
     } catch (error) {

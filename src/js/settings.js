@@ -1,6 +1,7 @@
 // Settings Manager for application configuration
 class SettingsManager {
     constructor() {
+        this.db = null;
         this.settings = {
             timer: {
                 adhdMode: false,
@@ -33,12 +34,28 @@ class SettingsManager {
 
     async init() {
         console.log('Initializing Settings Manager...');
+        
+        // Initialize local database
+        if (window.LocalDatabase) {
+            this.db = new window.LocalDatabase();
+            await this.db.init();
+        }
+        
         await this.loadSettings();
     }
 
     async loadSettings() {
         try {
-            const savedSettings = await window.focusApp.loadData('app-settings', {});
+            let savedSettings = {};
+            
+            if (this.db) {
+                // Use local database
+                savedSettings = await this.db.get('settings') || {};
+            } else {
+                // Fallback to old Electron store method
+                savedSettings = await window.focusApp.loadData('app-settings', {});
+            }
+            
             this.settings = this.mergeSettings(this.settings, savedSettings);
         } catch (error) {
             console.error('Error loading settings:', error);
@@ -47,7 +64,13 @@ class SettingsManager {
 
     async saveSettings() {
         try {
-            await window.focusApp.saveData('app-settings', this.settings);
+            if (this.db) {
+                // Use local database
+                await this.db.set('settings', this.settings);
+            } else {
+                // Fallback to old Electron store method
+                await window.focusApp.saveData('app-settings', this.settings);
+            }
         } catch (error) {
             console.error('Error saving settings:', error);
         }
@@ -864,13 +887,28 @@ class SettingsManager {
 
     async exportData() {
         try {
-            const data = {
-                settings: this.settings,
-                timerHistory: await window.focusApp.loadData('session-history', []),
-                customSounds: await window.focusApp.loadData('custom-sounds', []),
-                soundPresets: await window.focusApp.loadData('sound-presets', {}),
-                exportedAt: new Date().toISOString()
-            };
+            let data = {};
+            
+            if (this.db) {
+                // Use local database
+                data = {
+                    settings: await this.db.get('settings') || {},
+                    timerHistory: await this.db.get('timer.sessionHistory') || [],
+                    customSounds: await this.db.get('soundboard.customSounds') || [],
+                    soundPresets: await this.db.get('soundboard.presets') || {},
+                    youtubeMusic: await this.db.get('youtubeMusic.savedTracks') || [],
+                    exportedAt: new Date().toISOString()
+                };
+            } else {
+                // Fallback to old method
+                data = {
+                    settings: this.settings,
+                    timerHistory: await window.focusApp.loadData('session-history', []),
+                    customSounds: await window.focusApp.loadData('custom-sounds', []),
+                    soundPresets: await window.focusApp.loadData('sound-presets', {}),
+                    exportedAt: new Date().toISOString()
+                };
+            }
 
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -905,10 +943,20 @@ class SettingsManager {
                 }
 
                 // Import data
-                if (data.settings) await window.focusApp.saveData('app-settings', data.settings);
-                if (data.timerHistory) await window.focusApp.saveData('session-history', data.timerHistory);
-                if (data.customSounds) await window.focusApp.saveData('custom-sounds', data.customSounds);
-                if (data.soundPresets) await window.focusApp.saveData('sound-presets', data.soundPresets);
+                if (this.db) {
+                    // Use local database
+                    if (data.settings) await this.db.set('settings', data.settings);
+                    if (data.timerHistory) await this.db.set('timer.sessionHistory', data.timerHistory);
+                    if (data.customSounds) await this.db.set('soundboard.customSounds', data.customSounds);
+                    if (data.soundPresets) await this.db.set('soundboard.presets', data.soundPresets);
+                    if (data.youtubeMusic) await this.db.set('youtubeMusic.savedTracks', data.youtubeMusic);
+                } else {
+                    // Fallback to old method
+                    if (data.settings) await window.focusApp.saveData('app-settings', data.settings);
+                    if (data.timerHistory) await window.focusApp.saveData('session-history', data.timerHistory);
+                    if (data.customSounds) await window.focusApp.saveData('custom-sounds', data.customSounds);
+                    if (data.soundPresets) await window.focusApp.saveData('sound-presets', data.soundPresets);
+                }
 
                 window.focusApp.showNotification('Data Imported', 'Your data has been imported successfully. Please restart the app.', 'success');
             } catch (error) {
@@ -925,7 +973,11 @@ class SettingsManager {
             'This will permanently delete all your settings, session history, custom sounds, and presets. This action cannot be undone.',
             async () => {
                 try {
-                    if (window.electronAPI) {
+                    if (this.db) {
+                        // Use local database - clear all data
+                        await this.db.clear();
+                    } else if (window.electronAPI) {
+                        // Fallback to old Electron store method
                         await window.electronAPI.store.delete('app-settings');
                         await window.electronAPI.store.delete('session-history');
                         await window.electronAPI.store.delete('custom-sounds');
