@@ -9,6 +9,9 @@ class FocusSoundboardApp {
         this.isElectron = typeof window.electronAPI !== 'undefined';
         this.isDarkMode = false;
         
+        this.autoTheme = 'auto';
+        this._systemIsDark = null;
+
         this.init();
     }
 
@@ -45,6 +48,18 @@ class FocusSoundboardApp {
             this.setupElectronFeatures();
         }
         
+        // After setup, subscribe to system theme changes (Electron)
+        if (this.isElectron && window.electronAPI && window.electronAPI.onSystemThemeChanged) {
+            window.electronAPI.onSystemThemeChanged((isDark) => {
+                this._systemIsDark = !!isDark;
+                if (this.autoTheme === 'auto' || this.settings?.settings?.appearance?.theme === 'auto') {
+                    this.isDarkMode = this._systemIsDark;
+                    this.applyTheme();
+                    this.saveThemeState?.();
+                }
+            });
+        }
+        
         console.log('App initialized successfully!');
     }
 
@@ -53,17 +68,20 @@ class FocusSoundboardApp {
             // Load theme from local database
             const savedTheme = await window.pomodoroDb.getSetting('theme');
             const lastThemeState = await window.pomodoroDb.getSetting('lastThemeState');
-            
-            // Determine theme: saved preference > last state > system default
+            this.autoTheme = savedTheme || 'auto';
+            // Determine theme
+            const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            this._systemIsDark = systemDark;
             if (savedTheme === 'dark') {
                 this.isDarkMode = true;
             } else if (savedTheme === 'light') {
                 this.isDarkMode = false;
+            } else if (savedTheme === 'auto') {
+                this.isDarkMode = systemDark;
             } else if (lastThemeState !== null) {
                 this.isDarkMode = lastThemeState;
             } else {
-                // Default to system theme
-                this.isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                this.isDarkMode = systemDark;
             }
             
             console.log(`Theme loaded: ${this.isDarkMode ? 'dark' : 'light'} (source: ${savedTheme || 'system'})`);
@@ -232,6 +250,21 @@ class FocusSoundboardApp {
         }
     }
 
+    applySettings() {
+        // ...existing code...
+        // Apply theme settings
+        if (this.settings.appearance.theme === 'auto') {
+            this.autoTheme = 'auto';
+            const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            this.isDarkMode = systemDark;
+            this.applyTheme();
+        } else {
+            this.autoTheme = this.settings.appearance.theme;
+            window.focusApp.isDarkMode = this.settings.appearance.theme === 'dark';
+            window.focusApp.applyTheme();
+        }
+    }
+
     setupEventListeners() {
         // Theme toggle
         const themeToggle = document.getElementById('theme-toggle');
@@ -320,6 +353,12 @@ class FocusSoundboardApp {
                         e.preventDefault();
                         this.soundboard.muteAll();
                         break;
+                    case 'W':
+                        e.preventDefault();
+                        if (this.isElectron && window.electronAPI?.toggleMiniWindow) {
+                            window.electronAPI.toggleMiniWindow();
+                        }
+                        break;
                 }
             }
         });
@@ -368,6 +407,15 @@ class FocusSoundboardApp {
                 break;
             case 'menu-show-about':
                 this.ui.showAbout();
+                break;
+            case 'mini-pause':
+                if (this.timer) {
+                    if (this.timer.isRunning) {
+                        this.timer.pause();
+                    } else {
+                        this.timer.start();
+                    }
+                }
                 break;
         }
     }

@@ -17,7 +17,9 @@ class SettingsManager {
             audio: {
                 masterVolume: 1.0,
                 notificationVolume: 0.7,
-                muteOnBreaks: false
+                muteOnBreaks: false,
+                fadeDurationMs: 800,
+                customNotificationSounds: { complete: null, break: null, focus: null }
             },
             appearance: {
                 theme: 'auto', // 'light', 'dark', 'auto'
@@ -326,6 +328,16 @@ class SettingsManager {
                            class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer">
                 </div>
                 
+                <!-- Fade Duration -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="font-medium text-gray-900 dark:text-white">Fade Duration</h4>
+                        <span class="text-sm font-mono text-gray-500"><span id="fade-duration-display">${this.settings.audio.fadeDurationMs}</span> ms</span>
+                    </div>
+                    <input type="range" id="fade-duration" min="0" max="3000" step="50" value="${this.settings.audio.fadeDurationMs}" 
+                           class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                </div>
+                
                 <!-- Mute on Breaks -->
                 <div class="flex items-center justify-between">
                     <div>
@@ -336,6 +348,23 @@ class SettingsManager {
                         <input type="checkbox" id="mute-on-breaks" class="sr-only peer" ${this.settings.audio.muteOnBreaks ? 'checked' : ''}>
                         <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 dark:peer-focus:ring-primary-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-500"></div>
                     </label>
+                </div>
+                
+                <!-- Custom Notification Sounds -->
+                <div class="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                    <h4 class="font-medium text-gray-900 dark:text-white mb-3">Custom Notification Sounds</h4>
+                    <div class="grid grid-cols-3 gap-3 text-xs">
+                        ${['complete','break','focus'].map(key => `
+                        <div class="space-y-2">
+                            <label class="block text-gray-700 dark:text-gray-300 capitalize">${key} sound</label>
+                            <div class="flex items-center space-x-2">
+                                <input id="notif-${key}-path" type="text" class="input-field text-xs flex-1" placeholder="No file selected" value="${this.settings.audio.customNotificationSounds[key] || ''}" readonly>
+                                <button data-key="${key}" class="btn-ghost text-xs pick-notif">Browse</button>
+                                <button data-key="${key}" class="btn-ghost text-xs clear-notif">Clear</button>
+                            </div>
+                        </div>
+                        `).join('')}
+                    </div>
                 </div>
                 
                 <!-- Audio Test -->
@@ -677,6 +706,8 @@ class SettingsManager {
         const notificationVolume = document.getElementById('notification-volume');
         const masterDisplay = document.getElementById('master-volume-display');
         const notificationDisplay = document.getElementById('notification-volume-display');
+        const fadeDuration = document.getElementById('fade-duration');
+        const fadeDisplay = document.getElementById('fade-duration-display');
 
         masterVolume?.addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
@@ -686,6 +717,11 @@ class SettingsManager {
         notificationVolume?.addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
             notificationDisplay.textContent = `${Math.round(value * 100)}%`;
+        });
+
+        fadeDuration?.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            fadeDisplay.textContent = `${value}`;
         });
 
         // Test buttons
@@ -701,132 +737,50 @@ class SettingsManager {
                 window.focusApp.soundboard.playNotificationSound('complete');
             }
         });
-    }
 
-    attachYouTubeListeners() {
-        // Load saved tracks when the tab opens
-        this.updateSavedYouTubeTracks();
-        
-        // Enter key support for search
-        const searchInput = document.getElementById('youtube-search');
-        if (searchInput) {
-            searchInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    this.searchYouTubeMusic();
-                }
-            });
-        }
-    }
-
-    attachAppearanceListeners() {
-        // Theme selection
-        const themeInputs = document.querySelectorAll('input[name="theme"]');
-        themeInputs.forEach(input => {
-            input.addEventListener('change', (e) => {
-                if (e.target.checked) {
-                    this.previewTheme(e.target.value);
+        // Custom notification pickers
+        document.querySelectorAll('.pick-notif').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const key = e.currentTarget.getAttribute('data-key');
+                try {
+                    if (window.electronAPI?.showOpenDialog) {
+                        const result = await window.electronAPI.showOpenDialog();
+                        if (!result.canceled && result.filePaths.length > 0) {
+                            const path = result.filePaths[0];
+                            const input = document.getElementById(`notif-${key}-path`);
+                            if (input) input.value = path;
+                        }
+                    }
+                } catch (err) {
+                    console.error('File pick error', err);
                 }
             });
         });
-    }
-
-    attachGeneralListeners() {
-        // Data management buttons
-        const exportBtn = document.getElementById('export-data');
-        const importBtn = document.getElementById('import-data');
-        const clearBtn = document.getElementById('clear-data');
-
-        exportBtn?.addEventListener('click', () => this.exportData());
-        importBtn?.addEventListener('click', () => this.importData());
-        clearBtn?.addEventListener('click', () => this.clearAllData());
-    }
-
-    attachStatsListeners() {
-        const resetStatsBtn = document.getElementById('reset-stats');
-        resetStatsBtn?.addEventListener('click', () => {
-            window.focusApp.ui.showConfirmDialog(
-                'Reset Statistics',
-                'Are you sure you want to reset all statistics? This action cannot be undone.',
-                () => this.resetStatistics(),
-                null
-            );
+        document.querySelectorAll('.clear-notif').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const key = e.currentTarget.getAttribute('data-key');
+                const input = document.getElementById(`notif-${key}-path`);
+                if (input) input.value = '';
+            });
         });
-    }
-
-    previewTheme(theme) {
-        // Temporarily apply theme for preview
-        // This is just for demo purposes
-        console.log(`Previewing theme: ${theme}`);
-    }
-
-    async saveCurrentSettings() {
-        try {
-            // Collect all settings from form
-            this.collectTimerSettings();
-            this.collectAudioSettings();
-            this.collectAppearanceSettings();
-            this.collectGeneralSettings();
-            
-            // Save to storage
-            await this.saveSettings();
-            
-            // Apply settings
-            this.applySettings();
-            
-            this.hide();
-            window.focusApp.showNotification('Settings Saved', 'Your preferences have been saved successfully', 'success');
-        } catch (error) {
-            console.error('Error saving settings:', error);
-            window.focusApp.showNotification('Save Error', 'Failed to save settings', 'error');
-        }
-    }
-
-    collectTimerSettings() {
-        const adhdMode = document.getElementById('adhd-mode-setting')?.checked;
-        const autoStart = document.getElementById('auto-start-setting')?.checked;
-        const focusDuration = parseInt(document.getElementById('focus-duration')?.value);
-        const shortBreakDuration = parseInt(document.getElementById('short-break-duration')?.value);
-        const longBreakDuration = parseInt(document.getElementById('long-break-duration')?.value);
-        const notifications = document.getElementById('notifications-setting')?.checked;
-        const soundAlerts = document.getElementById('sound-alerts-setting')?.checked;
-
-        if (adhdMode !== undefined) this.settings.timer.adhdMode = adhdMode;
-        if (autoStart !== undefined) this.settings.timer.autoStart = autoStart;
-        if (focusDuration) this.settings.timer.customDurations.focus = focusDuration;
-        if (shortBreakDuration) this.settings.timer.customDurations['short-break'] = shortBreakDuration;
-        if (longBreakDuration) this.settings.timer.customDurations['long-break'] = longBreakDuration;
-        if (notifications !== undefined) this.settings.timer.showNotifications = notifications;
-        if (soundAlerts !== undefined) this.settings.timer.soundEnabled = soundAlerts;
     }
 
     collectAudioSettings() {
         const masterVolume = parseFloat(document.getElementById('master-volume')?.value);
         const notificationVolume = parseFloat(document.getElementById('notification-volume')?.value);
         const muteOnBreaks = document.getElementById('mute-on-breaks')?.checked;
+        const fadeDurationMs = parseInt(document.getElementById('fade-duration')?.value);
 
         if (!isNaN(masterVolume)) this.settings.audio.masterVolume = masterVolume;
         if (!isNaN(notificationVolume)) this.settings.audio.notificationVolume = notificationVolume;
         if (muteOnBreaks !== undefined) this.settings.audio.muteOnBreaks = muteOnBreaks;
-    }
+        if (!isNaN(fadeDurationMs)) this.settings.audio.fadeDurationMs = fadeDurationMs;
 
-    collectAppearanceSettings() {
-        const theme = document.querySelector('input[name="theme"]:checked')?.value;
-        const animations = document.getElementById('animations-setting')?.checked;
-        const trayProgress = document.getElementById('tray-progress-setting')?.checked;
-
-        if (theme) this.settings.appearance.theme = theme;
-        if (animations !== undefined) this.settings.appearance.animations = animations;
-        if (trayProgress !== undefined) this.settings.appearance.showProgressInTray = trayProgress;
-    }
-
-    collectGeneralSettings() {
-        const startMinimized = document.getElementById('start-minimized')?.checked;
-        const closeToTray = document.getElementById('close-to-tray')?.checked;
-        const launchOnStartup = document.getElementById('launch-on-startup')?.checked;
-
-        if (startMinimized !== undefined) this.settings.general.startMinimized = startMinimized;
-        if (closeToTray !== undefined) this.settings.general.closeToTray = closeToTray;
-        if (launchOnStartup !== undefined) this.settings.general.launchOnStartup = launchOnStartup;
+        // Collect custom notifications
+        ['complete','break','focus'].forEach(key => {
+            const v = document.getElementById(`notif-${key}-path`)?.value || null;
+            this.settings.audio.customNotificationSounds[key] = v || null;
+        });
     }
 
     applySettings() {
@@ -840,6 +794,8 @@ class SettingsManager {
         // Apply audio settings
         if (window.focusApp.soundboard) {
             window.focusApp.soundboard.setMasterVolume(this.settings.audio.masterVolume);
+            window.focusApp.soundboard.fadeDurationMs = this.settings.audio.fadeDurationMs;
+            window.focusApp.soundboard.notificationCustom = { ...window.focusApp.soundboard.notificationCustom, ...this.settings.audio.customNotificationSounds };
         }
 
         // Apply theme settings
@@ -865,7 +821,9 @@ class SettingsManager {
                     audio: {
                         masterVolume: 1.0,
                         notificationVolume: 0.7,
-                        muteOnBreaks: false
+                        muteOnBreaks: false,
+                        fadeDurationMs: 800,
+                        customNotificationSounds: { complete: null, break: null, focus: null }
                     },
                     appearance: {
                         theme: 'auto',

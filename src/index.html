@@ -43,6 +43,10 @@
             </div>
             
             <div class="flex items-center space-x-4">
+                <!-- Mini Mode Toggle -->
+                <button id="mini-toggle" class="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors" title="Mini Timer (Ctrl+Shift+W)">
+                    <i class="fas fa-compress-alt text-gray-700 dark:text-gray-300"></i>
+                </button>
                 <!-- Theme Toggle -->
                 <button id="theme-toggle" class="p-2 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors">
                     <i class="fas fa-moon text-gray-700 dark:text-gray-300 dark:hidden"></i>
@@ -241,5 +245,16 @@
     <script src="js/youtube-music.js"></script>
     <script src="js/settings.js"></script>
     <script src="js/ui.js"></script>
+    <script>
+      // Attach mini toggle
+      document.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById('mini-toggle');
+        if (btn && window.electronAPI && window.electronAPI.toggleMiniWindow) {
+          btn.addEventListener('click', () => window.electronAPI.toggleMiniWindow());
+        } else if (btn) {
+          btn.style.display = 'none';
+        }
+      });
+    </script>
 </body>
 </html>

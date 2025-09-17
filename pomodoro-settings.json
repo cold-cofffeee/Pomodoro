@@ -1,0 +1,27 @@
+{
+  "theme": null,
+  "lastThemeState": true,
+  "soundboard": {
+    "masterVolume": 1,
+    "isMuted": false,
+    "activeSounds": [],
+    "customSounds": [],
+    "presets": {}
+  },
+  "timer": {
+    "focusTime": 25,
+    "shortBreak": 5,
+    "longBreak": 15,
+    "autoStart": false,
+    "notifications": true
+  },
+  "youtube": {
+    "savedTracks": []
+  },
+  "general": {
+    "autoLaunch": false,
+    "minimizeToTray": true,
+    "closeToTray": true
+  },
+  "lastSaved": "2025-09-17T15:40:50.726Z"
+}

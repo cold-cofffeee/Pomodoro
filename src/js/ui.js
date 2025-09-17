@@ -210,6 +210,17 @@ class UIController {
         }
     }
 
+    setProgressActive(isActive) {
+        const circle = document.getElementById('progress-circle');
+        if (circle) {
+            if (isActive) {
+                circle.classList.add('progress-circle-active');
+            } else {
+                circle.classList.remove('progress-circle-active');
+            }
+        }
+    }
+
     animateElement(element, animation) {
         if (!element) return;
         

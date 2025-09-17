@@ -64,6 +64,10 @@ class Soundboard {
         // Initialize notification sounds with error handling
         this.notificationSounds = {};
         this.initializeNotificationSounds();
+        
+        this.fadeDurationMs = 800;
+        this.notificationCustom = { complete: null, break: null, focus: null };
+        this._audioCtx = null;
     }
 
     async initializeNotificationSounds() {
@@ -101,65 +105,65 @@ class Soundboard {
         await this.initializeNotificationSounds();
         await this.loadSounds();
         await this.loadPresets();
+        // Load audio preferences
+        const settings = window.focusApp.settings?.currentSettings;
+        if (settings?.audio?.fadeDurationMs != null) {
+            this.fadeDurationMs = settings.audio.fadeDurationMs;
+        }
+        if (settings?.audio?.customNotificationSounds) {
+            this.notificationCustom = { ...this.notificationCustom, ...settings.audio.customNotificationSounds };
+        }
         this.setupEventListeners();
         this.setupYouTubeAPIListener();
         this.renderSounds();
         this.renderPresets();
     }
 
-    setupYouTubeAPIListener() {
-        // Listen for YouTube API messages
-        window.addEventListener('message', (event) => {
-            if (event.origin !== 'https://www.youtube.com') return;
-            
+    get audioCtx() {
+        if (!this._audioCtx) {
             try {
-                const data = event.data;
-                if (typeof data === 'string') {
-                    const parsed = JSON.parse(data);
-                    if (parsed.event === 'video-progress') {
-                        // YouTube is playing, we can send commands
-                        console.log('YouTube API ready for commands');
-                    }
-                }
-            } catch (error) {
-                // Non-JSON message, ignore
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this._audioCtx = new AudioContext();
+            } catch (e) {
+                console.warn('Web Audio API not available');
             }
-        }, false);
-        
-        // Setup cleanup on app close
-        window.addEventListener('beforeunload', () => {
-            this.cleanup();
-        });
+        }
+        return this._audioCtx;
     }
 
-    // Cleanup method to prevent memory leaks
-    cleanup() {
+    _fadeHowl(howl, type = 'in', ms = this.fadeDurationMs) {
         try {
-            // Stop all sounds
-            this.stopAllSounds();
-            
-            // Cleanup all Howl instances
-            this.sounds.forEach(sound => {
-                if (sound.howl) {
-                    sound.howl.unload();
+            if (!howl) return;
+            const ids = howl._sounds.map(s => s._id);
+            const currentVol = howl.volume();
+            const target = type === 'in' ? currentVol : 0;
+            const start = type === 'in' ? 0 : currentVol;
+            howl.volume(start);
+            // Use Howler's native fade when available
+            if (typeof howl.fade === 'function') {
+                ids.forEach(id => howl.fade(start, target, ms, id));
+                if (type === 'out') {
+                    setTimeout(() => { try { howl.stop(); } catch (e) {} }, ms + 20);
                 }
-            });
-            
-            // Cleanup blob URLs
-            if (this.blobUrls) {
-                this.blobUrls.forEach(url => {
-                    URL.revokeObjectURL(url);
-                });
-                this.blobUrls.clear();
+                return;
             }
-            
-            // Clear collections
-            this.sounds.clear();
-            this.activeSounds.clear();
-            
-            console.log('Soundboard cleanup completed');
-        } catch (error) {
-            console.error('Error during cleanup:', error);
+            // Fallback: manual ramp
+            const steps = Math.max(5, Math.floor(ms / 50));
+            let i = 0;
+            const step = (target - start) / steps;
+            const interval = setInterval(() => {
+                i++;
+                const v = start + step * i;
+                howl.volume(Math.max(0, Math.min(1, v)));
+                if (i >= steps) {
+                    clearInterval(interval);
+                    if (type === 'out') {
+                        try { howl.stop(); } catch (e) {}
+                    }
+                }
+            }, ms / steps);
+        } catch (e) {
+            console.warn('Fade error:', e);
         }
     }
 
@@ -522,6 +526,7 @@ class Soundboard {
                     }
                     
                     const playId = sound.howl.play();
+                    this._fadeHowl(sound.howl, 'in');
                     
                     // Verify playback started
                     if (playId) {
@@ -574,7 +579,7 @@ class Soundboard {
             if (sound.howl.isYouTubeAudio) {
                 this.stopYouTubeAudio(sound.videoId);
             } else {
-                sound.howl.stop();
+                this._fadeHowl(sound.howl, 'out');
             }
             sound.isPlaying = false;
             this.activeSounds.delete(id);
@@ -1352,16 +1357,28 @@ class Soundboard {
     }
 
     playNotificationSound(type) {
+        const custom = this.notificationCustom?.[type];
+        const volume = (window.focusApp.settings?.currentSettings?.audio?.notificationVolume ?? 0.7) * (this.isMuted ? 0 : 1);
+        const src = custom || null;
+        try {
+            if (src) {
+                const h = new Howl({ src: [src], volume });
+                h.play();
+                this._fadeHowl(h, 'in', 200);
+                setTimeout(() => this._fadeHowl(h, 'out', 400), 600);
+                return;
+            }
+        } catch (e) {
+            console.warn('Custom notification sound failed, falling back');
+        }
         if (this.notificationSounds[type] && !this.isMuted) {
             try {
-                this.notificationSounds[type].play();
-                console.log(`Playing notification sound: ${type}`);
+                const h = this.notificationSounds[type];
+                h.volume(volume);
+                h.play();
             } catch (error) {
                 console.warn(`Failed to play notification sound ${type}:`, error);
             }
-        } else if (!this.notificationSounds[type]) {
-            console.log(`Notification sound not available: ${type}`);
-            // Could optionally use browser's built-in notification sound or show a visual notification
         }
     }
 

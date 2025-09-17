@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // File operations
   showOpenDialog: () => ipcRenderer.invoke('show-open-dialog'),
+  readFile: (filePath) => ipcRenderer.invoke('read-file', filePath),
+  writeFile: (filePath, data) => ipcRenderer.invoke('write-file', filePath, data),
 
   // Window controls
   minimizeWindow: () => ipcRenderer.send('minimize-window'),
@@ -24,6 +26,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Tray updates
   updateTrayTooltip: (text) => ipcRenderer.send('update-tray-tooltip', text),
+
+  // Mini window
+  toggleMiniWindow: () => ipcRenderer.send('toggle-mini-window'),
+  sendMiniControl: (action) => ipcRenderer.send('mini-control', action),
+  onTimerState: (callback) => {
+    ipcRenderer.on('timer-state', (_, state) => callback(state));
+    return () => ipcRenderer.removeAllListeners('timer-state');
+  },
+  onSystemThemeChanged: (callback) => {
+    ipcRenderer.on('system-theme-changed', (_, isDark) => callback(isDark));
+    return () => ipcRenderer.removeAllListeners('system-theme-changed');
+  },
+
+  // Timer state upstream to main (for mini window)
+  sendTimerState: (state) => ipcRenderer.send('timer-state-update', state),
 
   // YouTube Music API
   youtubeMusic: {
@@ -53,7 +70,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'shortcut-start-focus',
       'shortcut-start-break',
       'shortcut-stop-timer',
-      'shortcut-mute-all'
+      'shortcut-mute-all',
+      'mini-pause'
     ];
 
     eventHandlers.forEach(event => {

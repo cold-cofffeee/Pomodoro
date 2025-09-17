@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mini Timer</title>
+  <link rel="stylesheet" href="css/output.css" />
+  <style>
+    body { user-select: none; }
+    .drag-region { -webkit-app-region: drag; }
+    .no-drag { -webkit-app-region: no-drag; }
+  </style>
+</head>
+<body class="h-full bg-white dark:bg-gray-900">
+  <div class="h-full w-full p-3 flex items-center justify-between drag-region">
+    <div class="flex items-center space-x-3 no-drag">
+      <div class="relative">
+        <svg class="w-10 h-10 transform -rotate-90" viewBox="0 0 40 40">
+          <circle cx="20" cy="20" r="16" fill="none" stroke="currentColor" stroke-width="3" class="text-gray-200 dark:text-gray-700"></circle>
+          <circle id="mini-progress" cx="20" cy="20" r="16" fill="none" stroke="currentColor" stroke-width="3" class="text-primary-500" stroke-dasharray="100" stroke-dashoffset="100" stroke-linecap="round"></circle>
+        </svg>
+        <div class="absolute inset-0 flex items-center justify-center">
+          <span id="mini-time" class="text-xs font-mono text-gray-900 dark:text-gray-100">25:00</span>
+        </div>
+      </div>
+      <div>
+        <div id="mini-mode" class="text-xs font-medium text-gray-700 dark:text-gray-300">Focus</div>
+        <div id="mini-status" class="text-[10px] text-gray-500 dark:text-gray-400">Ready</div>
+      </div>
+    </div>
+    <div class="flex items-center space-x-1 no-drag">
+      <button id="mini-start" class="px-2 py-1 rounded bg-primary-500 hover:bg-primary-600 text-white text-xs"><i class="fas fa-play"></i></button>
+      <button id="mini-pause" class="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-100 text-xs"><i class="fas fa-pause"></i></button>
+      <button id="mini-stop" class="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-100 text-xs"><i class="fas fa-stop"></i></button>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js" defer></script>
+  <script>
+    const { electronAPI } = window;
+
+    function setProgress(percent) {
+      const circle = document.getElementById('mini-progress');
+      const circumference = 100; // we set dasharray 100
+      const offset = circumference - Math.max(0, Math.min(100, percent));
+      circle.style.strokeDashoffset = offset;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('mini-start').addEventListener('click', () => electronAPI && electronAPI.sendMiniControl('start-focus'));
+      document.getElementById('mini-pause').addEventListener('click', () => electronAPI && electronAPI.sendMiniControl('pause'));
+      document.getElementById('mini-stop').addEventListener('click', () => electronAPI && electronAPI.sendMiniControl('stop'));
+    });
+
+    // Receive timer state
+    window.addEventListener('timer-state', () => {});
+
+    if (electronAPI && electronAPI.onTimerState) {
+      electronAPI.onTimerState((state) => {
+        const { timeRemaining, totalTime, modeName, isRunning, status } = state;
+        document.getElementById('mini-time').textContent = state.formatted || '--:--';
+        document.getElementById('mini-mode').textContent = modeName || '';
+        document.getElementById('mini-status').textContent = status || (isRunning ? 'Running' : 'Paused');
+        if (totalTime > 0) {
+          const percent = ((totalTime - timeRemaining) / totalTime) * 100;
+          setProgress(percent);
+        }
+      });
+    }
+
+    if (electronAPI && electronAPI.onSystemThemeChanged) {
+      electronAPI.onSystemThemeChanged((isDark) => {
+        document.documentElement.classList.toggle('dark', !!isDark);
+      });
+    }
+  </script>
+</body>
+</html>

@@ -50,6 +50,8 @@ class PomodoroTimer {
             "Brilliant! Your mind is becoming more disciplined. 🏆",
             "Perfect! You're building unstoppable momentum. 🌊"
         ];
+        this._rafId = null;
+        this._lastTickAt = null;
     }
 
     async init() {
@@ -65,6 +67,19 @@ class PomodoroTimer {
         this.setupEventListeners();
         this.updateDisplay();
         this.updateSessionCount();
+        this._startAnimationLoop();
+    }
+
+    _startAnimationLoop() {
+        const animate = (ts) => {
+            // Smoothly animate progress circle while running
+            if (this.isRunning && this.totalTime > 0) {
+                const progress = ((this.totalTime - this.timeRemaining) / this.totalTime) * 100;
+                window.focusApp.ui.updateProgressCircle(progress);
+            }
+            this._rafId = requestAnimationFrame(animate);
+        };
+        this._rafId = requestAnimationFrame(animate);
     }
 
     async loadSettings() {
@@ -246,8 +261,10 @@ class PomodoroTimer {
         }, 1000);
 
         this.updateControls();
-        this.updateStatus('Running');
+    this.updateStatus('Running');
+    try { window.focusApp.ui && window.focusApp.ui.setProgressActive(true); } catch (e) {}
         this.updateTrayTooltip();
+        this._emitState('Running');
         
         window.focusApp.showNotification(
             'Timer Started', 
@@ -267,7 +284,9 @@ class PomodoroTimer {
 
         this.updateControls();
         this.updateStatus('Paused');
+        try { window.focusApp.ui && window.focusApp.ui.setProgressActive(false); } catch (e) {}
         this.updateTrayTooltip();
+        this._emitState('Paused');
     }
 
     stop() {
@@ -281,8 +300,10 @@ class PomodoroTimer {
 
         this.setMode(this.currentMode);
         this.updateControls();
-        this.updateStatus('Stopped');
+    this.updateStatus('Stopped');
+    try { window.focusApp.ui && window.focusApp.ui.setProgressActive(false); } catch (e) {}
         this.updateTrayTooltip();
+        this._emitState('Stopped');
         
         window.focusApp.showNotification(
             'Timer Stopped', 
@@ -291,13 +312,34 @@ class PomodoroTimer {
         );
     }
 
+    _emitState(statusOverride = null) {
+        try {
+            const state = {
+                timeRemaining: this.timeRemaining,
+                totalTime: this.totalTime,
+                mode: this.currentMode,
+                modeName: this.modes[this.currentMode]?.name || '',
+                isRunning: this.isRunning,
+                isPaused: this.isPaused,
+                formatted: this.formatTime(this.timeRemaining),
+                status: statusOverride || (this.isRunning ? 'Running' : (this.isPaused ? 'Paused' : 'Idle'))
+            };
+            if (window.electronAPI && window.electronAPI.sendTimerState) {
+                window.electronAPI.sendTimerState(state);
+            }
+        } catch (e) {
+            // ignore
+        }
+    }
+
     tick() {
         this.timeRemaining--;
         this.updateDisplay();
         this.updateTrayTooltip();
-        
         if (this.timeRemaining <= 0) {
             this.complete();
+        } else {
+            this._emitState('Running');
         }
     }
 
@@ -322,7 +364,9 @@ class PomodoroTimer {
         } else {
             this.updateControls();
             this.updateStatus('Complete');
+            try { window.focusApp.ui && window.focusApp.ui.setProgressActive(false); } catch (e) {}
         }
+        this._emitState('Complete');
     }
 
     recordSession() {
@@ -403,6 +447,8 @@ class PomodoroTimer {
             const progress = ((this.totalTime - this.timeRemaining) / this.totalTime) * 100;
             window.focusApp.ui.updateProgressCircle(progress);
         }
+        // emit state for mini window
+        this._emitState();
     }
 
     updateControls() {

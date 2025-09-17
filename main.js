@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Tray, ipcMain, globalShortcut, Notification, shell } = require('electron');
+const { app, BrowserWindow, Menu, Tray, ipcMain, globalShortcut, Notification, shell, nativeTheme } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
 
@@ -8,6 +8,7 @@ const store = new Store();
 class FocusSoundboardApp {
   constructor() {
     this.mainWindow = null;
+    this.miniWindow = null;
     this.tray = null;
     this.isQuitting = false;
     this.isDev = process.argv.includes('--dev');
@@ -22,6 +23,22 @@ class FocusSoundboardApp {
       this.setupGlobalShortcuts();
       // this.setupMenu(); // Menu disabled per user request
       this.setupIPC();
+
+      // Notify renderer of system theme at startup
+      setTimeout(() => {
+        try {
+          this.mainWindow?.webContents.send('system-theme-changed', nativeTheme.shouldUseDarkColors);
+        } catch (e) {}
+      }, 500);
+
+      // Watch for system theme changes (for auto theme)
+      nativeTheme.on('updated', () => {
+        const isDark = nativeTheme.shouldUseDarkColors;
+        this.mainWindow?.webContents.send('system-theme-changed', isDark);
+        if (this.miniWindow && !this.miniWindow.isDestroyed()) {
+          this.miniWindow.webContents.send('system-theme-changed', isDark);
+        }
+      });
     });
 
     app.on('window-all-closed', () => {
@@ -85,6 +102,43 @@ class FocusSoundboardApp {
     });
   }
 
+  createMiniWindow() {
+    if (this.miniWindow && !this.miniWindow.isDestroyed()) {
+      this.miniWindow.show();
+      this.miniWindow.focus();
+      return;
+    }
+
+    this.miniWindow = new BrowserWindow({
+      width: 260,
+      height: 120,
+      frame: false,
+      resizable: false,
+      transparent: false,
+      alwaysOnTop: true,
+      skipTaskbar: true,
+      movable: true,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: path.join(__dirname, 'preload.js')
+      }
+    });
+
+    this.miniWindow.loadFile('src/mini.html');
+    // Ensure the mini window gets the current system theme immediately after load
+    this.miniWindow.webContents.on('did-finish-load', () => {
+      try {
+        this.miniWindow?.webContents.send('system-theme-changed', nativeTheme.shouldUseDarkColors);
+      } catch (e) {}
+    });
+    if (this.isDev) this.miniWindow.webContents.openDevTools({ mode: 'detach' });
+
+    this.miniWindow.on('closed', () => {
+      this.miniWindow = null;
+    });
+  }
+
   createTray() {
     try {
       const trayIconPath = path.join(__dirname, 'src/assets/icons/tray-icon.png');
@@ -103,6 +157,20 @@ class FocusSoundboardApp {
           label: 'Show App',
           click: () => {
             this.mainWindow.show();
+          }
+        },
+        {
+          label: 'Mini Timer',
+          type: 'checkbox',
+          checked: !!(this.miniWindow && !this.miniWindow.isDestroyed() && this.miniWindow.isVisible()),
+          click: (menuItem) => {
+            if (this.miniWindow && !this.miniWindow.isDestroyed() && this.miniWindow.isVisible()) {
+              this.miniWindow.hide();
+              menuItem.checked = false;
+            } else {
+              this.createMiniWindow();
+              menuItem.checked = true;
+            }
           }
         },
         {
@@ -172,6 +240,15 @@ class FocusSoundboardApp {
 
     globalShortcut.register('CommandOrControl+Shift+T', () => {
       this.mainWindow.isVisible() ? this.mainWindow.hide() : this.mainWindow.show();
+    });
+
+    // Toggle Mini Timer window
+    globalShortcut.register('CommandOrControl+Shift+W', () => {
+      if (this.miniWindow && !this.miniWindow.isDestroyed() && this.miniWindow.isVisible()) {
+        this.miniWindow.hide();
+      } else {
+        this.createMiniWindow();
+      }
     });
   }
 
@@ -312,6 +389,45 @@ class FocusSoundboardApp {
             silent: false
           });
           notification.show();
+        }
+      });
+
+      // Mini window controls
+      ipcMain.on('toggle-mini-window', () => {
+        if (this.miniWindow && !this.miniWindow.isDestroyed() && this.miniWindow.isVisible()) {
+          this.miniWindow.hide();
+        } else {
+          this.createMiniWindow();
+        }
+      });
+
+      ipcMain.on('mini-control', (event, action) => {
+        // Forward control actions to main renderer
+        if (!this.mainWindow || this.mainWindow.isDestroyed()) return;
+        switch (action) {
+          case 'start-focus':
+            this.mainWindow.webContents.send('shortcut-start-focus');
+            break;
+          case 'start-break':
+            this.mainWindow.webContents.send('shortcut-start-break');
+            break;
+          case 'pause':
+            this.mainWindow.webContents.send('mini-pause');
+            break;
+          case 'stop':
+            this.mainWindow.webContents.send('shortcut-stop-timer');
+            break;
+        }
+      });
+
+      // Receive timer state updates from main renderer and forward to mini
+      ipcMain.on('timer-state-update', (event, state) => {
+        try {
+          if (this.miniWindow && !this.miniWindow.isDestroyed()) {
+            this.miniWindow.webContents.send('timer-state', state);
+          }
+        } catch (e) {
+          console.warn('Failed to forward timer state to mini window:', e.message);
         }
       });
 
