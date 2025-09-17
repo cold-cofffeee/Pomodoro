@@ -2,8 +2,6 @@
 
 A modern, high-quality desktop application that combines a customizable Pomodoro timer with an ambient soundboard, specifically designed for ADHD-friendly focus sessions.
 
-<!-- Test commit to verify push permissions -->
-
 ![Focus Soundboard Banner](https://via.placeholder.com/800x400/3b82f6/ffffff?text=Focus+Soundboard)
 
 ## ✨ Features
